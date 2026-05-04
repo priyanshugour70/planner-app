@@ -62,27 +62,36 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
     val journalPrompts: StateFlow<List<JournalPrompt>> = _journalPrompts.asStateFlow()
 
     init {
-        // Launch data loading in parallel safely
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             checkCloudBackup()
         }
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { loadGoals() }
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { loadTasks() }
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { loadNotes() }
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { loadHabits() }
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { loadJournalData() }
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { loadFinanceData() }
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { loadReminders() }
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { loadDashboardStats() }
+    }
+
+    private fun loadTasks() {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            loadFinanceData()
+            try {
+                tasks.value = dataRepository.getTasks()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
+    }
+
+    private fun loadReminders() {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            loadHabits()
-        }
-        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            loadJournalData()
-        }
-        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            loadGoals()
-        }
-        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            loadNotes()
-        }
-        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            loadDashboardStats()
+            try {
+                reminders.value = dataRepository.getReminders()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
@@ -92,9 +101,21 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
     }
     
     fun saveUserProfile(profile: UserProfile) {
-        viewModelScope.launch {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             storageManager.saveUserProfile(profile)
             _userProfile.value = profile
+            if (apiService.isLoggedIn()) {
+                try {
+                    apiService.updateProfile(mapOf(
+                        "firstName" to profile.firstName,
+                        "lastName" to profile.lastName,
+                        "phoneNumber" to profile.phoneNumber,
+                        "dateOfBirth" to profile.dateOfBirth,
+                        "occupation" to profile.occupation,
+                        "isOnboardingComplete" to profile.isOnboardingComplete
+                    ))
+                } catch (_: Exception) {}
+            }
         }
     }
     
@@ -311,9 +332,8 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
     fun addJournalEntry(entry: JournalEntry) {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
-                storageManager.addJournalEntry(entry)
+                dataRepository.createJournalEntry(entry)
                 loadJournalData()
-                
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -323,9 +343,8 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
     fun deleteJournalEntry(entryId: String) {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
-                storageManager.deleteJournalEntry(entryId)
+                dataRepository.deleteJournalEntry(entryId)
                 loadJournalData()
-                
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -371,39 +390,53 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
     }
     
     fun addNote(n: Note) {
-        viewModelScope.launch {
-            storageManager.addNote(n)
-            
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            dataRepository.createNote(n)
+            loadNotes()
         }
     }
     
     fun updateNote(n: Note) {
-        viewModelScope.launch {
-            storageManager.updateNote(n)
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            dataRepository.updateNote(n)
             loadNotes()
-            
         }
     }
     
     fun deleteNote(id: String) {
-        viewModelScope.launch {
-            storageManager.deleteNote(id)
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            dataRepository.deleteNote(id)
             loadNotes()
-            
         }
     }
     
     fun toggleNotePin(id: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             val note = notes.value.find { it.id == id } ?: return@launch
             val updated = note.copy(isPinned = !note.isPinned)
-            storageManager.updateNote(updated)
+            dataRepository.updateNote(updated)
             loadNotes()
-            
         }
     }
-    fun getUserGreeting(): String = "Hello!"
-    fun getUpcomingTasks(): List<Task> = emptyList()
+    fun getUserGreeting(): String {
+        val profile = _userProfile.value
+        val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+        val timeGreeting = when {
+            hour < 12 -> "Good Morning"
+            hour < 17 -> "Good Afternoon"
+            else -> "Good Evening"
+        }
+        val name = profile.firstName.ifBlank { "there" }
+        return "$timeGreeting, $name!"
+    }
+
+    fun getUpcomingTasks(): List<Task> {
+        val now = System.currentTimeMillis()
+        val nextWeek = now + 7 * 24 * 60 * 60 * 1000L
+        return tasks.value.filter {
+            !it.isCompleted && it.dueDate != null && it.dueDate in now..nextWeek
+        }.sortedBy { it.dueDate }
+    }
     
     fun getGoalById(id: String): Goal? {
         return goals.value.find { it.id == id }
@@ -528,7 +561,7 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
 
         // 6. HABITS (Completions)
         habits.value.forEach { habit ->
-            val entries = storageManager.getHabitEntries(habit.id)
+            val entries = dataRepository.getHabitEntries(habit.id)
             entries.forEach { entry ->
                 if (isDay(entry.date) && entry.isCompleted) {
                     items.add(CalendarItem(
@@ -595,63 +628,56 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
         selectedDate.value = t
     }
     fun addEvent(e: CalendarEvent) {
-        viewModelScope.launch {
-            storageManager.addEvent(e)
-            
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            dataRepository.addEvent(e)
         }
     }
     fun deleteEvent(id: String) {
-        viewModelScope.launch {
-            storageManager.deleteEvent(id)
-            
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            dataRepository.deleteEvent(id)
         }
     }
     fun toggleMilestone(g: String, m: String) {
-        // Toggle milestone logic
         val goal = goals.value.find { it.id == g } ?: return
         val updatedMilestones = goal.milestones.map { 
             if (it.id == m) it.copy(isCompleted = !it.isCompleted, completedAt = if (!it.isCompleted) System.currentTimeMillis() else null) else it 
         }
         val updatedGoal = goal.copy(milestones = updatedMilestones)
-        viewModelScope.launch {
-            storageManager.updateGoal(updatedGoal)
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            dataRepository.updateGoal(updatedGoal)
             loadGoals()
-            
         }
     }
     fun toggleTaskCompletion(t: String) {
-        viewModelScope.launch {
-            storageManager.toggleTaskCompletion(t)
-            
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            dataRepository.toggleTaskCompletion(t)
         }
     }
     fun toggleReminderEnabled(id: String) {
-        viewModelScope.launch {
-            storageManager.toggleReminderEnabled(id)
-            
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val reminder = reminders.value.find { it.id == id } ?: return@launch
+            val updated = reminder.copy(isEnabled = !reminder.isEnabled)
+            dataRepository.updateReminder(updated)
         }
     }
     fun deleteTask(t: String) {
-        viewModelScope.launch {
-            storageManager.deleteTask(t)
-            
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            dataRepository.deleteTask(t)
         }
     }
     fun addTask(t: Task) {
-        viewModelScope.launch {
-            storageManager.addTask(t)
-            
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            dataRepository.createTask(t)
         }
     }
     fun updateTask(t: Task) {
-        viewModelScope.launch {
-            storageManager.updateTask(t)
-            
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            dataRepository.updateTask(t)
         }
     }
     fun addReminder(r: Reminder) {
-        viewModelScope.launch {
-            storageManager.addReminder(r)
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            dataRepository.createReminder(r)
             if (r.isEnabled && r.reminderTime > System.currentTimeMillis()) {
                  com.lssgoo.planner.notification.PlannerNotificationManager(getApplication()).scheduleReminder(
                      notificationId = r.notificationId,
@@ -661,53 +687,45 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
                      itemId = r.id
                  )
             }
-            
         }
     }
     fun updateReminder(r: Reminder) {
-        viewModelScope.launch {
-            storageManager.updateReminder(r)
-             val manager = com.lssgoo.planner.notification.PlannerNotificationManager(getApplication())
-             if (r.isEnabled && r.reminderTime > System.currentTimeMillis()) {
-                 manager.scheduleReminder(
-                     notificationId = r.notificationId,
-                     title = r.title,
-                     message = r.description.ifBlank { "Reminder" },
-                     triggerTime = r.reminderTime,
-                     itemId = r.id
-                 )
-             } else {
-                 manager.cancelReminder(r.notificationId)
-             }
-            
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            dataRepository.updateReminder(r)
+            val manager = com.lssgoo.planner.notification.PlannerNotificationManager(getApplication())
+            if (r.isEnabled && r.reminderTime > System.currentTimeMillis()) {
+                manager.scheduleReminder(
+                    notificationId = r.notificationId,
+                    title = r.title,
+                    message = r.description.ifBlank { "Reminder" },
+                    triggerTime = r.reminderTime,
+                    itemId = r.id
+                )
+            } else {
+                manager.cancelReminder(r.notificationId)
+            }
         }
     }
     fun deleteReminder(id: String) {
-        viewModelScope.launch {
-             // We need to fetch it first to get notificationId?
-             // Or assumes storageManager handles it?
-             // Ideally we should know notificationId.
-             // For now, if we delete, we might miss cancelling if we don't have the object.
-             // Let's try to get it first.
-             val reminder = reminders.value.find { it.id == id }
-             if (reminder != null) {
-                  com.lssgoo.planner.notification.PlannerNotificationManager(getApplication()).cancelReminder(reminder.notificationId)
-             }
-            storageManager.deleteReminder(id)
-            
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val reminder = reminders.value.find { it.id == id }
+            if (reminder != null) {
+                com.lssgoo.planner.notification.PlannerNotificationManager(getApplication()).cancelReminder(reminder.notificationId)
+            }
+            dataRepository.deleteReminder(id)
         }
     }
 
     // HABITS
     fun addHabit(h: Habit) {
-        viewModelScope.launch {
-            storageManager.addHabit(h)
-            
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            dataRepository.createHabit(h)
+            loadHabits()
         }
     }
     
     fun getHabitStats(id: String): HabitStats {
-        val entries = storageManager.getHabitEntries(id).sortedBy { it.date }
+        val entries = dataRepository.getHabitEntries(id).sortedBy { it.date }
         val totalDays = entries.size 
         val completions = entries.count { it.isCompleted }
         
@@ -743,7 +761,7 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
     }
 
     fun getGlobalHeatmap(): Map<Long, Int> {
-        val allEntries = habits.value.flatMap { storageManager.getHabitEntries(it.id) }
+        val allEntries = habits.value.flatMap { dataRepository.getHabitEntries(it.id) }
         return allEntries.groupBy { it.date }
             .mapValues { (_, entries) -> 
                 val count = entries.count { it.isCompleted }
@@ -757,14 +775,14 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
             }
     }
 
-    fun getHabitEntriesForDate(d: Long): List<HabitEntry> = storageManager.getHabitEntriesForDate(d)
+    fun getHabitEntriesForDate(d: Long): List<HabitEntry> = dataRepository.getHabitEntriesForDate(d)
     
     fun toggleHabitEntry(id: String, date: Long, value: Float = 1f, mood: HabitMood? = null) {
-        viewModelScope.launch {
-            val existing = storageManager.getHabitEntries(id).find { it.date == date }
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val existing = dataRepository.getHabitEntries(id).find { it.date == date }
             if (existing != null) {
                 if (existing.isCompleted) {
-                    storageManager.deleteHabitEntry(existing.id)
+                    dataRepository.deleteHabitEntry(existing.id)
                 }
             } else {
                 val entry = HabitEntry(
@@ -774,10 +792,9 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
                     value = value,
                     mood = mood
                 )
-                storageManager.addHabitEntry(entry)
+                dataRepository.addHabitEntry(entry)
             }
-            loadHabits() 
-            
+            loadHabits()
         }
     }
 
@@ -792,54 +809,43 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
     
     fun updateTransaction(tr: Transaction) {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            val txns = storageManager.getTransactions().toMutableList()
-            val idx = txns.indexOfFirst { it.id == tr.id }
-            if (idx >= 0) txns[idx] = tr
-            storageManager.saveTransactions(txns)
+            dataRepository.updateTransaction(tr)
             loadFinanceData()
-            
         }
     }
     
     fun deleteTransaction(id: String) {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            val txns = storageManager.getTransactions().filter { it.id != id }
-            storageManager.saveTransactions(txns)
+            dataRepository.deleteTransaction(id)
             loadFinanceData()
-            
         }
     }
 
     fun addBudget(b: Budget) {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            storageManager.addBudget(b)
+            dataRepository.addBudget(b)
             loadFinanceData()
-            
         }
     }
     
     fun removeBudget(id: String) {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            val budgetList = storageManager.getBudgets().filter { it.id != id }
-            storageManager.saveBudgets(budgetList)
+            dataRepository.removeBudget(id)
             loadFinanceData()
-            
         }
     }
 
     fun settleDebt(id: String) {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            val txns = storageManager.getTransactions().toMutableList()
-            val idx = txns.indexOfFirst { it.id == id }
-            if (idx >= 0) txns[idx] = txns[idx].copy(isSettled = true)
-            storageManager.saveTransactions(txns)
+            val txn = transactions.value.find { it.id == id } ?: return@launch
+            val settled = txn.copy(isSettled = true)
+            dataRepository.updateTransaction(settled)
             loadFinanceData()
-            
         }
     }
 
     fun exportFinanceCSV(): String {
-        val txns = storageManager.getTransactions()
+        val txns = transactions.value
         val sb = StringBuilder("Date,Type,Category,Amount,Note,Person\n")
         txns.forEach { t ->
             sb.appendLine("${t.date},${t.type},${t.category},${t.amount},${t.note},${t.personName ?: ""}")
@@ -849,7 +855,34 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
 
     fun loadDashboardStats() {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            dashboardStats.value = storageManager.getDashboardStats()
+            try {
+                val allGoals = goals.value
+                val allTasks = tasks.value
+                val todayStart = getStartOfDay(System.currentTimeMillis())
+                val todayEnd = todayStart + 24 * 60 * 60 * 1000 - 1
+                
+                val tasksToday = allTasks.filter { it.dueDate != null && it.dueDate in todayStart..todayEnd }
+                val completedToday = tasksToday.count { it.isCompleted }
+                val totalMilestones = allGoals.flatMap { it.milestones }
+                val completedMilestones = totalMilestones.count { it.isCompleted }
+                
+                val overallProgress = if (allGoals.isNotEmpty()) {
+                    allGoals.map { it.progress }.average().toFloat()
+                } else 0f
+                
+                dashboardStats.value = com.lssgoo.planner.features.settings.models.DashboardStats(
+                    totalGoals = allGoals.size,
+                    totalMilestones = totalMilestones.size,
+                    completedMilestones = completedMilestones,
+                    totalTasksToday = tasksToday.size,
+                    tasksCompletedToday = completedToday,
+                    currentStreak = 0,
+                    longestStreak = 0,
+                    overallProgress = overallProgress
+                )
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 

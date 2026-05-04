@@ -39,6 +39,17 @@ class SettingsViewModel(application: Application) : BaseViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             storage.saveUserProfile(profile)
             _userProfile.value = profile
+            if (apiService.isLoggedIn()) {
+                try {
+                    apiService.updateProfile(mapOf(
+                        "firstName" to profile.firstName,
+                        "lastName" to profile.lastName,
+                        "phoneNumber" to profile.phoneNumber,
+                        "dateOfBirth" to profile.dateOfBirth,
+                        "occupation" to profile.occupation
+                    ))
+                } catch (_: Exception) {}
+            }
         }
     }
 

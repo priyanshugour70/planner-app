@@ -482,6 +482,115 @@ class DataRepository(context: Context) {
         }
     }
 
+    // =================== ADDITIONAL CRUD ===================
+
+    suspend fun updateReminder(reminder: Reminder) = withContext(Dispatchers.IO) {
+        if (isLoggedIn) {
+            try { api.updateReminder(reminder.id, reminderToMap(reminder)) } catch (_: Exception) {}
+        }
+        val list = storage.getReminders().toMutableList()
+        val idx = list.indexOfFirst { it.id == reminder.id }
+        if (idx >= 0) list[idx] = reminder
+        storage.saveReminders(list)
+    }
+
+    suspend fun deleteReminder(reminderId: String) = withContext(Dispatchers.IO) {
+        if (isLoggedIn) {
+            try { api.deleteReminder(reminderId) } catch (_: Exception) {}
+        }
+        val list = storage.getReminders().filter { it.id != reminderId }
+        storage.saveReminders(list)
+    }
+
+    suspend fun deleteEvent(eventId: String) = withContext(Dispatchers.IO) {
+        val list = storage.getEvents().filter { it.id != eventId }
+        storage.saveEvents(list)
+    }
+
+    suspend fun updateTransaction(transaction: Transaction) = withContext(Dispatchers.IO) {
+        if (isLoggedIn) {
+            try { api.updateTransaction(transaction.id, transactionToMap(transaction)) } catch (_: Exception) {}
+        }
+        val list = storage.getTransactions().toMutableList()
+        val idx = list.indexOfFirst { it.id == transaction.id }
+        if (idx >= 0) list[idx] = transaction
+        storage.saveTransactions(list)
+    }
+
+    suspend fun deleteTransaction(transactionId: String) = withContext(Dispatchers.IO) {
+        if (isLoggedIn) {
+            try { api.deleteTransaction(transactionId) } catch (_: Exception) {}
+        }
+        val list = storage.getTransactions().filter { it.id != transactionId }
+        storage.saveTransactions(list)
+    }
+
+    suspend fun updateHabit(habit: Habit) = withContext(Dispatchers.IO) {
+        if (isLoggedIn) {
+            try { api.updateHabit(habit.id, habitToMap(habit)) } catch (_: Exception) {}
+        }
+        storage.updateHabit(habit)
+    }
+
+    suspend fun deleteHabit(habitId: String) = withContext(Dispatchers.IO) {
+        if (isLoggedIn) {
+            try { api.deleteHabit(habitId) } catch (_: Exception) {}
+        }
+        storage.deleteHabit(habitId)
+    }
+
+    suspend fun deleteJournalEntry(entryId: String) = withContext(Dispatchers.IO) {
+        if (isLoggedIn) {
+            try { api.deleteJournalEntry(entryId) } catch (_: Exception) {}
+        }
+        storage.deleteJournalEntry(entryId)
+    }
+
+    suspend fun addBudget(budget: Budget) = withContext(Dispatchers.IO) {
+        storage.addBudget(budget)
+    }
+
+    suspend fun removeBudget(budgetId: String) = withContext(Dispatchers.IO) {
+        val list = storage.getBudgets().filter { it.id != budgetId }
+        storage.saveBudgets(list)
+    }
+
+    suspend fun toggleTaskCompletion(taskId: String) = withContext(Dispatchers.IO) {
+        val taskList = storage.getTasks().toMutableList()
+        val idx = taskList.indexOfFirst { it.id == taskId }
+        if (idx >= 0) {
+            val task = taskList[idx]
+            val updated = task.copy(isCompleted = !task.isCompleted, updatedAt = System.currentTimeMillis())
+            taskList[idx] = updated
+            storage.saveTasks(taskList)
+            if (isLoggedIn) {
+                try { api.updateTask(taskId, taskToMap(updated)) } catch (_: Exception) {}
+            }
+        }
+    }
+
+    suspend fun addHabitEntry(entry: HabitEntry) = withContext(Dispatchers.IO) {
+        storage.addHabitEntry(entry)
+        if (isLoggedIn) {
+            try {
+                api.createHabitEntry(mapOf(
+                    "habitId" to entry.habitId,
+                    "date" to entry.date,
+                    "isCompleted" to entry.isCompleted,
+                    "value" to entry.value,
+                    "mood" to (entry.mood?.name ?: "")
+                ))
+            } catch (_: Exception) {}
+        }
+    }
+
+    suspend fun deleteHabitEntry(entryId: String) = withContext(Dispatchers.IO) {
+        storage.deleteHabitEntry(entryId)
+    }
+
+    fun getHabitEntries(habitId: String): List<HabitEntry> = storage.getHabitEntries(habitId)
+    fun getHabitEntriesForDate(date: Long): List<HabitEntry> = storage.getHabitEntriesForDate(date)
+
     // =================== LOCAL ACCESS (always available) ===================
 
     fun getLocalStorage(): LocalStorageManager = storage
@@ -696,8 +805,8 @@ class DataRepository(context: Context) {
                 progress = (map["progress"] as? Number)?.toFloat() ?: 0f,
                 milestones = emptyList(),
                 targetDate = (map["targetDate"] as? Number)?.toLong(),
-                createdAt = (map["createdAt"] as? Number)?.toLong() ?: System.currentTimeMillis(),
-                updatedAt = (map["updatedAt"] as? Number)?.toLong() ?: System.currentTimeMillis()
+                createdAt = parseTimestamp(map["createdAt"]),
+                updatedAt = parseTimestamp(map["updatedAt"])
             )
         } catch (_: Exception) { null }
     }
@@ -715,8 +824,8 @@ class DataRepository(context: Context) {
                 dueDate = (map["dueDate"] as? Number)?.toLong(),
                 completedAt = (map["completedAt"] as? Number)?.toLong(),
                 tags = (map["tags"] as? List<String>) ?: emptyList(),
-                createdAt = (map["createdAt"] as? Number)?.toLong() ?: System.currentTimeMillis(),
-                updatedAt = (map["updatedAt"] as? Number)?.toLong() ?: System.currentTimeMillis()
+                createdAt = parseTimestamp(map["createdAt"]),
+                updatedAt = parseTimestamp(map["updatedAt"])
             )
         } catch (_: Exception) { null }
     }
@@ -733,8 +842,8 @@ class DataRepository(context: Context) {
                 isPinned = map["isPinned"] as? Boolean ?: false,
                 category = map["category"] as? String ?: "General",
                 tags = (map["tags"] as? List<String>) ?: emptyList(),
-                createdAt = (map["createdAt"] as? Number)?.toLong() ?: System.currentTimeMillis(),
-                updatedAt = (map["updatedAt"] as? Number)?.toLong() ?: System.currentTimeMillis()
+                createdAt = parseTimestamp(map["createdAt"]),
+                updatedAt = parseTimestamp(map["updatedAt"])
             )
         } catch (_: Exception) { null }
     }
@@ -755,8 +864,8 @@ class DataRepository(context: Context) {
                 isEnabled = map["isEnabled"] as? Boolean ?: true,
                 isCompleted = map["isCompleted"] as? Boolean ?: false,
                 color = parseColorLong(map["color"]),
-                createdAt = (map["createdAt"] as? Number)?.toLong() ?: System.currentTimeMillis(),
-                updatedAt = (map["updatedAt"] as? Number)?.toLong() ?: System.currentTimeMillis()
+                createdAt = parseTimestamp(map["createdAt"]),
+                updatedAt = parseTimestamp(map["updatedAt"])
             )
         } catch (_: Exception) { null }
     }
@@ -775,7 +884,7 @@ class DataRepository(context: Context) {
                 personName = map["personName"] as? String,
                 isSettled = map["isSettled"] as? Boolean ?: false,
                 isRecurring = map["isRecurring"] as? Boolean ?: false,
-                createdAt = (map["createdAt"] as? Number)?.toLong() ?: System.currentTimeMillis()
+                createdAt = parseTimestamp(map["createdAt"])
             )
         } catch (_: Exception) { null }
     }
@@ -812,7 +921,7 @@ class DataRepository(context: Context) {
                 timeOfDay = timeOfDay,
                 reminderTime = map["reminderTime"] as? String,
                 isActive = map["isActive"] as? Boolean ?: true,
-                createdAt = (map["createdAt"] as? Number)?.toLong() ?: System.currentTimeMillis()
+                createdAt = parseTimestamp(map["createdAt"])
             )
         } catch (_: Exception) { null }
     }
@@ -839,6 +948,20 @@ class DataRepository(context: Context) {
                 updatedAt = (map["updatedAt"] as? Number)?.toLong() ?: now
             )
         } catch (_: Exception) { null }
+    }
+
+    private fun parseTimestamp(value: Any?): Long {
+        return when (value) {
+            is Number -> value.toLong()
+            is String -> {
+                try {
+                    java.time.LocalDateTime.parse(value.replace(" ", "T"))
+                        .atZone(java.time.ZoneId.systemDefault())
+                        .toInstant().toEpochMilli()
+                } catch (_: Exception) { System.currentTimeMillis() }
+            }
+            else -> System.currentTimeMillis()
+        }
     }
 
     private fun parseColorLong(value: Any?): Long {

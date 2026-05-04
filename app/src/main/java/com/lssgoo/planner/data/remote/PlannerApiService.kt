@@ -268,6 +268,29 @@ class PlannerApiService(context: Context) {
         )
     }
 
+    suspend fun updateHabit(uuid: String, habit: Map<String, Any?>): ApiResponse<Map<String, Any>>? {
+        return client.put(
+            "/api/v1/habits/$uuid",
+            habit,
+            object : TypeToken<ApiResponse<Map<String, Any>>>() {}
+        )
+    }
+
+    suspend fun deleteHabit(uuid: String): ApiResponse<Any?>? {
+        return client.delete(
+            "/api/v1/habits/$uuid",
+            object : TypeToken<ApiResponse<Any?>>() {}
+        )
+    }
+
+    suspend fun createHabitEntry(entry: Map<String, Any?>): ApiResponse<Map<String, Any>>? {
+        return client.post(
+            "/api/v1/habits/entries",
+            entry,
+            object : TypeToken<ApiResponse<Map<String, Any>>>() {}
+        )
+    }
+
     suspend fun logHabitEntry(entry: Map<String, Any?>): ApiResponse<Map<String, Any>>? {
         return client.post(
             "/api/v1/habits/entries",
@@ -293,6 +316,13 @@ class PlannerApiService(context: Context) {
         )
     }
 
+    suspend fun deleteJournalEntry(uuid: String): ApiResponse<Any?>? {
+        return client.delete(
+            "/api/v1/journal/$uuid",
+            object : TypeToken<ApiResponse<Any?>>() {}
+        )
+    }
+
     // =================== FINANCE ===================
 
     suspend fun getTransactions(page: Int = 0, size: Int = 20): ApiResponse<Map<String, Any>>? {
@@ -307,6 +337,21 @@ class PlannerApiService(context: Context) {
             "/api/v1/finance/transactions",
             transaction,
             object : TypeToken<ApiResponse<Map<String, Any>>>() {}
+        )
+    }
+
+    suspend fun updateTransaction(uuid: String, transaction: Map<String, Any?>): ApiResponse<Map<String, Any>>? {
+        return client.put(
+            "/api/v1/finance/transactions/$uuid",
+            transaction,
+            object : TypeToken<ApiResponse<Map<String, Any>>>() {}
+        )
+    }
+
+    suspend fun deleteTransaction(uuid: String): ApiResponse<Any?>? {
+        return client.delete(
+            "/api/v1/finance/transactions/$uuid",
+            object : TypeToken<ApiResponse<Any?>>() {}
         )
     }
 
@@ -330,6 +375,31 @@ class PlannerApiService(context: Context) {
         return client.post(
             "/api/v1/reminders",
             reminder,
+            object : TypeToken<ApiResponse<Map<String, Any>>>() {}
+        )
+    }
+
+    suspend fun updateReminder(uuid: String, reminder: Map<String, Any?>): ApiResponse<Map<String, Any>>? {
+        return client.put(
+            "/api/v1/reminders/$uuid",
+            reminder,
+            object : TypeToken<ApiResponse<Map<String, Any>>>() {}
+        )
+    }
+
+    suspend fun deleteReminder(uuid: String): ApiResponse<Any?>? {
+        return client.delete(
+            "/api/v1/reminders/$uuid",
+            object : TypeToken<ApiResponse<Any?>>() {}
+        )
+    }
+
+    // =================== PROFILE ===================
+
+    suspend fun updateProfile(profile: Map<String, Any?>): ApiResponse<Map<String, Any>>? {
+        return client.put(
+            "/api/v1/auth/profile",
+            profile,
             object : TypeToken<ApiResponse<Map<String, Any>>>() {}
         )
     }
