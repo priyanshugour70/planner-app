@@ -2,7 +2,10 @@ package com.lssgoo.planner.data.remote
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.util.Log
 import com.google.gson.Gson
+import com.google.gson.JsonParser
+import com.google.gson.JsonSyntaxException
 import com.google.gson.reflect.TypeToken
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -32,6 +35,7 @@ class ApiClient(private val context: Context) {
     private val prefs: SharedPreferences = context.getSharedPreferences("planner_auth", Context.MODE_PRIVATE)
 
     companion object {
+        private const val TAG = "PlannerAPI"
         private const val KEY_ACCESS_TOKEN = "access_token"
         private const val KEY_REFRESH_TOKEN = "refresh_token"
         private const val KEY_USER_ID = "user_id"
@@ -114,21 +118,78 @@ class ApiClient(private val context: Context) {
             }
 
             val responseCode = connection.responseCode
+            // INFO so Logcat shows traffic with default "Info" level (no need to enable Verbose/Debug).
+            Log.i(TAG, "$method $path → HTTP $responseCode (auth=${if (token != null) "yes" else "no"})")
             val inputStream = if (responseCode in 200..299) {
                 connection.inputStream
             } else {
-                connection.errorStream
-            }
+                connection.errorStream ?: connection.inputStream
+            } ?: return null
 
             val reader = BufferedReader(InputStreamReader(inputStream))
             val responseBody = reader.readText()
             reader.close()
             connection.disconnect()
 
-            return gson.fromJson(responseBody, typeToken.type)
+            val envelope = parseApiResponse(responseBody, typeToken)
+            if (envelope != null) {
+                Log.i(TAG, "  envelope: status=${envelope.status} msg=${envelope.message?.take(120)}")
+            }
+            return envelope
         } catch (e: Exception) {
             e.printStackTrace()
             return null
+        }
+    }
+
+    /**
+     * Backend returns a JSON object; proxies or edge cases may return a JSON string, HTML, or plain text.
+     * Gson would throw "Expected BEGIN_OBJECT but was STRING" — handle that here.
+     */
+    private fun <T> parseApiResponse(raw: String, typeToken: TypeToken<ApiResponse<T>>): ApiResponse<T>? {
+        val body = raw.trim()
+        if (body.isEmpty()) return null
+        val root = try {
+            JsonParser.parseString(body)
+        } catch (_: JsonSyntaxException) {
+            return ApiResponse(
+                message = body.take(500),
+                status = "INVALID_RESPONSE",
+                data = null,
+                errors = listOf(mapOf("message" to body.take(500), "raw" to body.take(500))),
+                timestamp = null
+            )
+        }
+        if (root.isJsonPrimitive) {
+            val p = root.asJsonPrimitive
+            val msg = if (p.isString) p.asString else p.toString()
+            return ApiResponse(
+                message = msg,
+                status = "ERROR",
+                data = null,
+                errors = listOf(mapOf("message" to msg)),
+                timestamp = null
+            )
+        }
+        if (!root.isJsonObject) {
+            return ApiResponse(
+                message = "Unexpected JSON root",
+                status = "INVALID_RESPONSE",
+                data = null,
+                errors = listOf(mapOf("message" to body.take(500))),
+                timestamp = null
+            )
+        }
+        return try {
+            gson.fromJson(root, typeToken.type)
+        } catch (e: JsonSyntaxException) {
+            ApiResponse(
+                message = e.message,
+                status = "PARSE_ERROR",
+                data = null,
+                errors = listOf(mapOf("message" to (e.message ?: "parse error"))),
+                timestamp = null
+            )
         }
     }
 }

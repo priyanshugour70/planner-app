@@ -573,13 +573,15 @@ class DataRepository(context: Context) {
         storage.addHabitEntry(entry)
         if (isLoggedIn) {
             try {
-                api.createHabitEntry(mapOf(
+                val body = mutableMapOf<String, Any?>(
                     "habitId" to entry.habitId,
                     "date" to entry.date,
                     "isCompleted" to entry.isCompleted,
                     "value" to entry.value,
-                    "mood" to (entry.mood?.name ?: "")
-                ))
+                    "notes" to entry.notes
+                )
+                entry.mood?.name?.takeIf { it.isNotBlank() }?.let { body["mood"] = it }
+                api.createHabitEntry(body)
             } catch (_: Exception) {}
         }
     }
