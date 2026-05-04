@@ -2,68 +2,76 @@ package com.lssgoo.planner.ui.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.viewModelScope
-import com.lssgoo.planner.data.local.LocalStorageManager
 import com.lssgoo.planner.data.model.Task
-import com.lssgoo.planner.data.repository.TaskRepository
+import com.lssgoo.planner.data.repository.DataRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.util.Calendar
 
-/**
- * ViewModel for Tasks feature - follows SRP and 200-300 lines rule
- */
 class TasksViewModel(application: Application) : BaseViewModel(application) {
-    
-    private val storageManager = LocalStorageManager(application)
-    private val taskRepository = TaskRepository(storageManager)
-    
+
+    private val repository = DataRepository(application)
+
     private val _tasks = MutableStateFlow<List<Task>>(emptyList())
     val tasks: StateFlow<List<Task>> = _tasks.asStateFlow()
-    
+
     init {
         loadTasks()
     }
-    
+
     fun loadTasks() {
         viewModelScope.launch(Dispatchers.IO) {
-            _tasks.value = taskRepository.getTasks()
+            _isLoading.value = true
+            _tasks.value = repository.getTasks()
+            _isLoading.value = false
         }
     }
-    
+
     fun addTask(task: Task) {
         viewModelScope.launch(Dispatchers.IO) {
-            taskRepository.saveTask(task)
+            repository.createTask(task)
             loadTasks()
         }
     }
-    
+
     fun updateTask(task: Task) {
         viewModelScope.launch(Dispatchers.IO) {
-            taskRepository.saveTask(task)
+            repository.updateTask(task)
             loadTasks()
         }
     }
-    
+
     fun deleteTask(taskId: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            taskRepository.deleteTask(taskId)
+            repository.deleteTask(taskId)
             loadTasks()
         }
     }
-    
+
     fun toggleTaskCompletion(taskId: String) {
         viewModelScope.launch(Dispatchers.IO) {
-            taskRepository.toggleTaskCompletion(taskId)
+            repository.completeTask(taskId)
             loadTasks()
         }
     }
-    
+
     fun getTasksForDate(date: Long): List<Task> {
+        val cal = Calendar.getInstance()
+        cal.timeInMillis = date
+        val targetDay = cal.get(Calendar.DAY_OF_YEAR)
+        val targetYear = cal.get(Calendar.YEAR)
         return _tasks.value.filter { task ->
-            // Use similar logic to repository or expose via state
-            true // Simplified for now
+            task.dueDate?.let {
+                cal.timeInMillis = it
+                cal.get(Calendar.DAY_OF_YEAR) == targetDay && cal.get(Calendar.YEAR) == targetYear
+            } ?: false
         }
     }
+
+    fun getPendingTasks(): List<Task> = _tasks.value.filter { !it.isCompleted }
+
+    fun getCompletedTasks(): List<Task> = _tasks.value.filter { it.isCompleted }
 }

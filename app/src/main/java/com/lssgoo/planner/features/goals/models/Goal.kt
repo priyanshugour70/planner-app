@@ -46,7 +46,8 @@ enum class GoalCategory(val displayName: String, val emoji: String, val iconName
     DISCIPLINE("Discipline", "⏰", "Schedule"),
     FINANCE("Finance", "💰", "Savings"),
     STARTUP("Startup", "🚀", "RocketLaunch"),
-    MINDFULNESS("Mindfulness", "🧘", "SelfImprovement")
+    MINDFULNESS("Mindfulness", "🧘", "SelfImprovement"),
+    PERSONAL("Personal", "👤", "Person")
 }
 
 /**

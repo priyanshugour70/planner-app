@@ -123,9 +123,10 @@ data class VersionInfo(val version: String, val date: String, val changes: List<
 @Composable
 fun VersionHistoryScreen(onBack: () -> Unit) {
     val versions = listOf(
-        VersionInfo("1.2.0", "Dec 24, 2025", listOf("Unified Calendar Activity View", "Enhanced Finance Tracking", "Daily Pulse Indicators")),
-        VersionInfo("1.1.0", "Dec 15, 2025", listOf("Cloud Sync with AWS S3", "New Midnight Purple Theme", "Performance Improvements")),
-        VersionInfo("1.0.0", "Nov 25, 2025", listOf("Initial Release", "Core Goal Management", "Smart Notes & Tasks"))
+        VersionInfo("2.0.0", "May 2026", listOf("Backend API integration", "OTP-based authentication", "Guest user support", "Removed AWS S3 sync", "Real-time data sync")),
+        VersionInfo("1.2.0", "Dec 2025", listOf("Unified Calendar Activity View", "Enhanced Finance Tracking", "Daily Pulse Indicators")),
+        VersionInfo("1.1.0", "Dec 2025", listOf("New Midnight Purple Theme", "Performance Improvements", "Multi-theme support")),
+        VersionInfo("1.0.0", "Nov 2025", listOf("Initial Release", "Core Goal Management", "Smart Notes & Tasks"))
     )
 
     Scaffold(
@@ -184,12 +185,33 @@ fun PrivacyPolicyScreen(onBack: () -> Unit) {
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold
                 )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "Last updated: May 2026",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.outline
+                )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
-                    "1. Data Ownership: All your data is stored locally on your device unless you explicitly enable Cloud Sync.\n\n" +
-                    "2. Information We Collect: We do not sell your personal data. We only collect basic diagnostic information to improve app stability.\n\n" +
-                    "3. Security: We use industry-standard encryption for your PIN and cloud backups.\n\n" +
-                    "4. Your Rights: You have full control over your data, including the ability to export and clear all data at any time from the Settings menu.",
+                    "1. Data Storage & Security\n" +
+                    "Your data is securely stored on our servers using industry-standard encryption (AES-256). " +
+                    "Local data is cached on your device for offline access.\n\n" +
+                    "2. Information We Collect\n" +
+                    "We collect your email address for authentication, and your app usage data (goals, tasks, notes, etc.) " +
+                    "to provide the service. We do NOT sell your personal data to third parties.\n\n" +
+                    "3. Authentication\n" +
+                    "We use OTP (One-Time Password) email verification for secure, passwordless login. " +
+                    "Guest accounts are created anonymously and can be upgraded by providing an email.\n\n" +
+                    "4. Your Rights\n" +
+                    "You have full control over your data:\n" +
+                    "• Export all your data at any time\n" +
+                    "• Delete your account and all associated data\n" +
+                    "• Clear local cache from Settings\n\n" +
+                    "5. Data Retention\n" +
+                    "Your data is retained as long as your account is active. " +
+                    "Guest account data is retained for 90 days of inactivity.\n\n" +
+                    "6. Contact\n" +
+                    "For privacy concerns, contact us at privacy@planner.app",
                     style = MaterialTheme.typography.bodyLarge,
                     lineHeight = 26.sp
                 )
@@ -208,13 +230,33 @@ fun TermsOfServiceScreen(onBack: () -> Unit) {
                     style = MaterialTheme.typography.headlineSmall,
                     fontWeight = FontWeight.Bold
                 )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    "Last updated: May 2026",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.outline
+                )
                 Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     "By using Planner, you agree to the following terms:\n\n" +
-                    "• The app is provided 'as is' without warranties of any kind.\n" +
-                    "• You are responsible for maintaining the confidentiality of your PIN.\n" +
-                    "• We are not liable for any data loss that occurs due to device failure or clearing local storage.\n" +
-                    "• You agree not to use the app for any illegal activities.",
+                    "1. Acceptance of Terms\n" +
+                    "By accessing or using the Planner application, you agree to be bound by these Terms of Service.\n\n" +
+                    "2. Account Responsibility\n" +
+                    "• You are responsible for maintaining the security of your account\n" +
+                    "• You are responsible for all activities that occur under your account\n" +
+                    "• You must provide a valid email for OTP verification\n\n" +
+                    "3. Acceptable Use\n" +
+                    "• You agree not to use the app for any illegal activities\n" +
+                    "• You agree not to attempt to disrupt the service\n" +
+                    "• You agree not to access other users' data\n\n" +
+                    "4. Data & Service\n" +
+                    "• The app is provided 'as is' without warranties of any kind\n" +
+                    "• We strive for 99.9% uptime but do not guarantee uninterrupted service\n" +
+                    "• We reserve the right to modify or discontinue features with notice\n\n" +
+                    "5. Limitation of Liability\n" +
+                    "We are not liable for any indirect, incidental, or consequential damages arising from your use of the app.\n\n" +
+                    "6. Changes to Terms\n" +
+                    "We may update these terms from time to time. Continued use of the app constitutes acceptance of the updated terms.",
                     style = MaterialTheme.typography.bodyLarge,
                     lineHeight = 26.sp
                 )

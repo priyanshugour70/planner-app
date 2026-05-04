@@ -2,69 +2,63 @@ package com.lssgoo.planner.ui.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.viewModelScope
-import com.lssgoo.planner.data.local.LocalStorageManager
 import com.lssgoo.planner.data.model.*
-import com.lssgoo.planner.data.repository.*
+import com.lssgoo.planner.data.repository.DataRepository
+import com.lssgoo.planner.features.habits.models.Habit
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/**
- * ViewModel for the Dashboard - aggregates data from multiple repositories
- */
 class DashboardViewModel(application: Application) : BaseViewModel(application) {
-    
-    private val storageManager = LocalStorageManager(application)
-    private val goalRepo = GoalRepository(storageManager)
-    private val taskRepo = TaskRepository(storageManager)
-    private val noteRepo = NoteRepository(storageManager)
-    private val financeRepo = FinanceRepository(storageManager)
-    
-    private val _stats = MutableStateFlow(DashboardStats())
-    val stats: StateFlow<DashboardStats> = _stats.asStateFlow()
-    
-    private val _recentGoals = MutableStateFlow<List<Goal>>(emptyList())
-    val recentGoals: StateFlow<List<Goal>> = _recentGoals.asStateFlow()
-    
-    private val _todayTasks = MutableStateFlow<List<Task>>(emptyList())
-    val todayTasks: StateFlow<List<Task>> = _todayTasks.asStateFlow()
 
-    private val _userProfile = MutableStateFlow(UserProfile())
-    val userProfile: StateFlow<UserProfile> = _userProfile.asStateFlow()
-    
+    private val repository = DataRepository(application)
+
+    private val _goals = MutableStateFlow<List<Goal>>(emptyList())
+    val goals: StateFlow<List<Goal>> = _goals.asStateFlow()
+
+    private val _tasks = MutableStateFlow<List<Task>>(emptyList())
+    val tasks: StateFlow<List<Task>> = _tasks.asStateFlow()
+
+    private val _notes = MutableStateFlow<List<Note>>(emptyList())
+    val notes: StateFlow<List<Note>> = _notes.asStateFlow()
+
+    private val _habits = MutableStateFlow<List<Habit>>(emptyList())
+    val habits: StateFlow<List<Habit>> = _habits.asStateFlow()
+
+    private val _reminders = MutableStateFlow<List<Reminder>>(emptyList())
+    val reminders: StateFlow<List<Reminder>> = _reminders.asStateFlow()
+
+    private val _transactions = MutableStateFlow<List<Transaction>>(emptyList())
+    val transactions: StateFlow<List<Transaction>> = _transactions.asStateFlow()
+
+    private val _journalEntries = MutableStateFlow<List<JournalEntry>>(emptyList())
+    val journalEntries: StateFlow<List<JournalEntry>> = _journalEntries.asStateFlow()
+
     init {
-        loadDashboardData()
+        loadDashboard()
     }
-    
-    fun loadDashboardData() {
+
+    fun loadDashboard() {
         viewModelScope.launch(Dispatchers.IO) {
-            val goals = goalRepo.getGoals()
-            val tasks = taskRepo.getTasks()
-            
-            _recentGoals.value = goals.take(5)
-            _todayTasks.value = tasks.filter { isToday(it.dueDate) }.take(5)
-            
-            // Calculate stats
-            _stats.value = DashboardStats(
-                totalGoals = goals.size,
-                completedMilestones = goals.sumOf { it.milestones.count { m -> m.isCompleted } },
-                totalMilestones = goals.sumOf { it.milestones.size },
-                tasksCompletedToday = tasks.count { it.isCompleted && isToday(it.completedAt) },
-                totalTasksToday = tasks.count { isToday(it.dueDate) }
-            )
-            
-            _userProfile.value = storageManager.getUserProfile() ?: UserProfile()
+            _isLoading.value = true
+            _goals.value = repository.getGoals()
+            _tasks.value = repository.getTasks()
+            _notes.value = repository.getNotes()
+            _habits.value = repository.getHabits()
+            _reminders.value = repository.getReminders()
+            _transactions.value = repository.getTransactions()
+            _journalEntries.value = repository.getJournalEntries()
+            _isLoading.value = false
         }
     }
-    
-    private fun isToday(timestamp: Long?): Boolean {
-        if (timestamp == null) return false
-        val cal = java.util.Calendar.getInstance()
-        val today = cal.get(java.util.Calendar.DAY_OF_YEAR)
-        val year = cal.get(java.util.Calendar.YEAR)
-        cal.timeInMillis = timestamp
-        return cal.get(java.util.Calendar.DAY_OF_YEAR) == today && cal.get(java.util.Calendar.YEAR) == year
+
+    fun getPendingTasksCount(): Int = _tasks.value.count { !it.isCompleted }
+    fun getCompletedTasksCount(): Int = _tasks.value.count { it.isCompleted }
+    fun getActiveGoalsCount(): Int = _goals.value.size
+    fun getOverallGoalProgress(): Float {
+        val goals = _goals.value
+        return if (goals.isEmpty()) 0f else goals.map { it.progress }.average().toFloat()
     }
 }

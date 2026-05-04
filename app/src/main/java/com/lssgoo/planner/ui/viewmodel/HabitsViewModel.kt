@@ -2,46 +2,56 @@ package com.lssgoo.planner.ui.viewmodel
 
 import android.app.Application
 import androidx.lifecycle.viewModelScope
-import com.lssgoo.planner.data.local.LocalStorageManager
-import com.lssgoo.planner.data.model.*
-import com.lssgoo.planner.features.habits.models.*
+import com.lssgoo.planner.data.repository.DataRepository
+import com.lssgoo.planner.features.habits.models.Habit
+import com.lssgoo.planner.features.habits.models.HabitEntry
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
-/**
- * ViewModel for Habits feature
- */
 class HabitsViewModel(application: Application) : BaseViewModel(application) {
-    
-    private val storageManager = LocalStorageManager(application)
-    
+
+    private val repository = DataRepository(application)
+
     private val _habits = MutableStateFlow<List<Habit>>(emptyList())
     val habits: StateFlow<List<Habit>> = _habits.asStateFlow()
-    
+
+    private val _habitEntries = MutableStateFlow<List<HabitEntry>>(emptyList())
+    val habitEntries: StateFlow<List<HabitEntry>> = _habitEntries.asStateFlow()
+
     init {
         loadHabits()
     }
-    
+
     fun loadHabits() {
         viewModelScope.launch(Dispatchers.IO) {
-            _habits.value = storageManager.getHabits()
+            _isLoading.value = true
+            _habits.value = repository.getHabits()
+            _habitEntries.value = repository.getHabitEntries()
+            _isLoading.value = false
         }
     }
-    
-    fun toggleHabit(habitId: String) {
+
+    fun addHabit(habit: Habit) {
         viewModelScope.launch(Dispatchers.IO) {
-            val habits = storageManager.getHabits().toMutableList()
-            val index = habits.indexOfFirst { it.id == habitId }
-            if (index != -1) {
-                val habit = habits[index]
-                // Logic to toggle habit for today
-                // ...
-                storageManager.saveHabits(habits)
-                loadHabits()
-            }
+            repository.createHabit(habit)
+            loadHabits()
         }
     }
+
+    fun logEntry(entry: HabitEntry) {
+        viewModelScope.launch(Dispatchers.IO) {
+            repository.logHabitEntry(entry)
+            _habitEntries.value = repository.getHabitEntries()
+        }
+    }
+
+    fun getActiveHabits(): List<Habit> = _habits.value.filter { it.isActive }
+
+    fun getEntriesForHabit(habitId: String): List<HabitEntry> =
+        _habitEntries.value.filter { it.habitId == habitId }
+
+    fun getHabitById(habitId: String): Habit? = _habits.value.find { it.id == habitId }
 }

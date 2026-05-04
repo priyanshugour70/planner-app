@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.lifecycle.viewModelScope
 import com.lssgoo.planner.data.local.LocalStorageManager
 import com.lssgoo.planner.data.model.*
+import com.lssgoo.planner.data.repository.DataRepository
 import com.lssgoo.planner.features.habits.models.*
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -12,13 +13,14 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 
 /**
- * Root ViewModel for global app state
+ * Root ViewModel for global app state - delegates to DataRepository for backend integration
  */
 class PlannerViewModel(application: Application) : BaseViewModel(application) {
     
     private val storageManager = LocalStorageManager(application)
+    private val dataRepository = DataRepository(application)
     
-    private val syncRepository = com.lssgoo.planner.data.repository.SyncRepository(application)
+    private val apiService = com.lssgoo.planner.data.remote.PlannerApiService(application)
     
     private val _settings = MutableStateFlow(storageManager.getSettings())
     val settings: StateFlow<AppSettings> = _settings.asStateFlow()
@@ -31,8 +33,6 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
 
     private val _isCheckingSync = MutableStateFlow(false)
     val isCheckingSync: StateFlow<Boolean> = _isCheckingSync.asStateFlow()
-
-    private val financeRepository = com.lssgoo.planner.data.repository.FinanceRepository(storageManager)
     
     // Feature data states
     val goals = MutableStateFlow<List<Goal>>(emptyList())
@@ -87,29 +87,14 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
     }
 
     private suspend fun checkCloudBackup() {
-        try {
-            if (!_isOnboardingComplete.value) {
-                _isCheckingSync.value = true
-                val restored = syncRepository.checkAndDownloadBackup()
-                if (restored) {
-                    _userProfile.value = storageManager.getUserProfile() ?: UserProfile()
-                    _isOnboardingComplete.value = storageManager.isOnboardingComplete()
-                    _settings.value = storageManager.getSettings()
-                    loadNotes()
-                }
-                _isCheckingSync.value = false
-            }
-        } catch (e: Exception) {
-            e.printStackTrace()
-            _isCheckingSync.value = false
-        }
+        // No-op: S3 sync removed, data is synced via backend API
+        _isCheckingSync.value = false
     }
     
     fun saveUserProfile(profile: UserProfile) {
         viewModelScope.launch {
             storageManager.saveUserProfile(profile)
             _userProfile.value = profile
-            syncToCloud()
         }
     }
     
@@ -117,7 +102,6 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
         viewModelScope.launch {
             storageManager.setOnboardingComplete()
             _isOnboardingComplete.value = true
-            syncToCloud()
         }
     }
     
@@ -125,7 +109,6 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
         viewModelScope.launch {
             storageManager.saveSettings(newSettings)
             _settings.value = newSettings
-            syncToCloud()
         }
     }
     
@@ -149,42 +132,37 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
     val lastSyncTime = MutableStateFlow(System.currentTimeMillis())
     
     fun syncToCloud() {
-        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            try {
-                // If BaseViewModel has _isSyncing, we can use it if visible, or just ignore for now to avoid errors
-                syncRepository.syncToCloud()
-                lastSyncTime.value = System.currentTimeMillis()
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-        }
+        // No-op: S3 sync removed, data syncs through backend API automatically
     }
     
     fun syncFromCloud() {
+        // No-op: S3 sync removed, data syncs through backend API automatically
+    }
+    
+    fun logout() {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            _isCheckingSync.value = true
             try {
-                val restored = syncRepository.checkAndDownloadBackup()
-                if (restored) {
-                    _userProfile.value = storageManager.getUserProfile() ?: UserProfile()
-                    _isOnboardingComplete.value = storageManager.isOnboardingComplete()
-                    _settings.value = storageManager.getSettings()
-                    loadNotes()
-                    showSnackbar("Data restored!")
-                } else {
-                    showSnackbar("No cloud backup found")
-                }
-            } catch (e: Exception) {
-                e.printStackTrace()
-            }
-            _isCheckingSync.value = false
+                apiService.logout()
+            } catch (_: Exception) {}
+            storageManager.clearAllData()
+            _userProfile.value = UserProfile()
+            _isOnboardingComplete.value = false
         }
     }
     
     fun exportDataToFile(context: Context): android.net.Uri? {
-        val json = storageManager.exportAllData()
-        // Simple file export implementation or null
-        return null 
+        return try {
+            val json = storageManager.exportAllData()
+            val fileName = "planner_backup_${System.currentTimeMillis()}.json"
+            val file = java.io.File(context.cacheDir, fileName)
+            file.writeText(json)
+            androidx.core.content.FileProvider.getUriForFile(
+                context, "${context.packageName}.fileprovider", file
+            )
+        } catch (e: Exception) {
+            e.printStackTrace()
+            null
+        }
     }
     
     fun importData(json: String): Boolean {
@@ -205,7 +183,7 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
     private fun loadNotes() {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
-                notes.value = storageManager.getNotes()
+                notes.value = dataRepository.getNotes()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -215,16 +193,15 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
     private fun loadFinanceData() {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
-                transactions.value = financeRepository.getTransactions()
-                val currentBudgets = financeRepository.getBudgets()
+                transactions.value = dataRepository.getTransactions()
+                val currentBudgets = dataRepository.getBudgets()
                 if (currentBudgets.isEmpty()) {
                      ensureDefaultBudgets()
-                     budgets.value = financeRepository.getBudgets()
+                     budgets.value = storageManager.getBudgets()
                 } else {
                      budgets.value = currentBudgets
                 }
-                financeLogs.value = financeRepository.getLogs()
-                financeStats.value = financeRepository.getFinanceStats()
+                financeLogs.value = dataRepository.getFinanceLogs()
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -234,8 +211,12 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
     private fun loadHabits() {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
-                val loaded = storageManager.getHabits()
-                ensureDefaultHabits(loaded)
+                val loaded = dataRepository.getHabits()
+                if (loaded.isEmpty()) {
+                    ensureDefaultHabits(loaded)
+                } else {
+                    habits.value = loaded
+                }
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -245,7 +226,7 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
     private fun loadJournalData() {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
-                _journalEntries.value = storageManager.getJournalEntries()
+                _journalEntries.value = dataRepository.getJournalEntries()
                 val prompts = storageManager.getJournalPrompts()
                 if (prompts.isEmpty()) {
                     initializeDefaultPrompts()
@@ -261,7 +242,7 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
     private fun loadGoals() {
          viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             try {
-                val loaded = storageManager.getGoals()
+                val loaded = dataRepository.getGoals()
                 if (loaded.isEmpty()) {
                     ensureDefaultGoals()
                     goals.value = storageManager.getGoals()
@@ -283,7 +264,7 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
             Budget(category = TransactionCategory.ENTERTAINMENT, limitAmount = 200.0, spentAmount = 0.0),
             Budget(category = TransactionCategory.SHOPPING, limitAmount = 400.0, spentAmount = 0.0)
         )
-        defaults.forEach { financeRepository.addBudget(it) }
+        defaults.forEach { storageManager.addBudget(it) }
     }
     
     private fun ensureDefaultGoals() {
@@ -332,7 +313,7 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
             try {
                 storageManager.addJournalEntry(entry)
                 loadJournalData()
-                syncToCloud()
+                
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -344,7 +325,7 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
             try {
                 storageManager.deleteJournalEntry(entryId)
                 loadJournalData()
-                syncToCloud()
+                
             } catch (e: Exception) {
                 e.printStackTrace()
             }
@@ -392,7 +373,7 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
     fun addNote(n: Note) {
         viewModelScope.launch {
             storageManager.addNote(n)
-            syncToCloud()
+            
         }
     }
     
@@ -400,7 +381,7 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
         viewModelScope.launch {
             storageManager.updateNote(n)
             loadNotes()
-            syncToCloud()
+            
         }
     }
     
@@ -408,7 +389,7 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
         viewModelScope.launch {
             storageManager.deleteNote(id)
             loadNotes()
-            syncToCloud()
+            
         }
     }
     
@@ -418,7 +399,7 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
             val updated = note.copy(isPinned = !note.isPinned)
             storageManager.updateNote(updated)
             loadNotes()
-            syncToCloud()
+            
         }
     }
     fun getUserGreeting(): String = "Hello!"
@@ -616,13 +597,13 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
     fun addEvent(e: CalendarEvent) {
         viewModelScope.launch {
             storageManager.addEvent(e)
-            syncToCloud()
+            
         }
     }
     fun deleteEvent(id: String) {
         viewModelScope.launch {
             storageManager.deleteEvent(id)
-            syncToCloud()
+            
         }
     }
     fun toggleMilestone(g: String, m: String) {
@@ -635,37 +616,37 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
         viewModelScope.launch {
             storageManager.updateGoal(updatedGoal)
             loadGoals()
-            syncToCloud()
+            
         }
     }
     fun toggleTaskCompletion(t: String) {
         viewModelScope.launch {
             storageManager.toggleTaskCompletion(t)
-            syncToCloud()
+            
         }
     }
     fun toggleReminderEnabled(id: String) {
         viewModelScope.launch {
             storageManager.toggleReminderEnabled(id)
-            syncToCloud()
+            
         }
     }
     fun deleteTask(t: String) {
         viewModelScope.launch {
             storageManager.deleteTask(t)
-            syncToCloud()
+            
         }
     }
     fun addTask(t: Task) {
         viewModelScope.launch {
             storageManager.addTask(t)
-            syncToCloud()
+            
         }
     }
     fun updateTask(t: Task) {
         viewModelScope.launch {
             storageManager.updateTask(t)
-            syncToCloud()
+            
         }
     }
     fun addReminder(r: Reminder) {
@@ -680,7 +661,7 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
                      itemId = r.id
                  )
             }
-            syncToCloud()
+            
         }
     }
     fun updateReminder(r: Reminder) {
@@ -698,7 +679,7 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
              } else {
                  manager.cancelReminder(r.notificationId)
              }
-            syncToCloud()
+            
         }
     }
     fun deleteReminder(id: String) {
@@ -713,7 +694,7 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
                   com.lssgoo.planner.notification.PlannerNotificationManager(getApplication()).cancelReminder(reminder.notificationId)
              }
             storageManager.deleteReminder(id)
-            syncToCloud()
+            
         }
     }
 
@@ -721,7 +702,7 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
     fun addHabit(h: Habit) {
         viewModelScope.launch {
             storageManager.addHabit(h)
-            syncToCloud()
+            
         }
     }
     
@@ -796,60 +777,75 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
                 storageManager.addHabitEntry(entry)
             }
             loadHabits() 
-            syncToCloud()
+            
         }
     }
 
     // FINANCE
     fun addTransaction(tr: Transaction) {
-        viewModelScope.launch {
-            financeRepository.addTransaction(tr)
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            dataRepository.createTransaction(tr)
             loadFinanceData()
-            syncToCloud()
+            
         }
     }
     
     fun updateTransaction(tr: Transaction) {
-        viewModelScope.launch {
-            financeRepository.updateTransaction(tr)
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val txns = storageManager.getTransactions().toMutableList()
+            val idx = txns.indexOfFirst { it.id == tr.id }
+            if (idx >= 0) txns[idx] = tr
+            storageManager.saveTransactions(txns)
             loadFinanceData()
-            syncToCloud()
+            
         }
     }
     
     fun deleteTransaction(id: String) {
-        viewModelScope.launch {
-            financeRepository.deleteTransaction(id)
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val txns = storageManager.getTransactions().filter { it.id != id }
+            storageManager.saveTransactions(txns)
             loadFinanceData()
-            syncToCloud()
+            
         }
     }
 
     fun addBudget(b: Budget) {
-        viewModelScope.launch {
-            financeRepository.addBudget(b)
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            storageManager.addBudget(b)
             loadFinanceData()
-            syncToCloud()
+            
         }
     }
     
     fun removeBudget(id: String) {
-        viewModelScope.launch {
-            financeRepository.removeBudget(id)
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val budgetList = storageManager.getBudgets().filter { it.id != id }
+            storageManager.saveBudgets(budgetList)
             loadFinanceData()
-            syncToCloud()
+            
         }
     }
 
     fun settleDebt(id: String) {
-        viewModelScope.launch {
-            financeRepository.settleDebt(id)
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
+            val txns = storageManager.getTransactions().toMutableList()
+            val idx = txns.indexOfFirst { it.id == id }
+            if (idx >= 0) txns[idx] = txns[idx].copy(isSettled = true)
+            storageManager.saveTransactions(txns)
             loadFinanceData()
-            syncToCloud()
+            
         }
     }
 
-    fun exportFinanceCSV(): String = financeRepository.generateTransactionsCSV()
+    fun exportFinanceCSV(): String {
+        val txns = storageManager.getTransactions()
+        val sb = StringBuilder("Date,Type,Category,Amount,Note,Person\n")
+        txns.forEach { t ->
+            sb.appendLine("${t.date},${t.type},${t.category},${t.amount},${t.note},${t.personName ?: ""}")
+        }
+        return sb.toString()
+    }
 
     fun loadDashboardStats() {
         viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {

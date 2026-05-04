@@ -406,221 +406,21 @@ fun SettingsScreen(
                 }
             }
             
-            // Cloud Sync Section
+            // Account Section
             item {
-                val isSyncing by viewModel.isSyncing.collectAsState()
-                val lastSyncTime by viewModel.lastSyncTime.collectAsState()
-                val lastSyncTimeValue = lastSyncTime // Store in local variable for smart cast
-                var showAutoSyncDialog by remember { mutableStateOf(false) }
-                
-                // Get auto sync manager
-                val autoSyncManager = remember { com.lssgoo.planner.data.sync.AutoSyncManager(context) }
-                var isAutoSyncEnabled by remember { mutableStateOf(autoSyncManager.isAutoSyncEnabled()) }
-                var currentInterval by remember { mutableStateOf(autoSyncManager.getSyncInterval()) }
-                
                 SettingsSection(
-                    title = "Cloud Sync (AWS S3)",
-                    icon = Icons.Filled.CloudSync
+                    title = "Account",
+                    icon = Icons.Filled.AccountCircle
                 ) {
-                    // Auto Sync Toggle
-                    SettingsItemWithSwitch(
-                        icon = Icons.Filled.Autorenew,
-                        title = "Auto Sync",
-                        subtitle = if (isAutoSyncEnabled) {
-                            autoSyncManager.getIntervalDisplayName(currentInterval)
-                        } else {
-                            "Enable automatic background sync"
-                        },
-                        isChecked = isAutoSyncEnabled,
-                        onCheckedChange = { enabled ->
-                            isAutoSyncEnabled = enabled
-                            if (enabled) {
-                                autoSyncManager.enableAutoSync(currentInterval)
-                            } else {
-                                autoSyncManager.disableAutoSync()
-                            }
-                        },
-                        iconColor = MaterialTheme.colorScheme.tertiary
-                    )
-                    
-                    // Sync Interval (only visible when auto sync is enabled)
-                    if (isAutoSyncEnabled) {
-                        HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                        
-                        SettingsItem(
-                            icon = Icons.Filled.Schedule,
-                            title = "Sync Interval",
-                            subtitle = autoSyncManager.getIntervalDisplayName(currentInterval),
-                            onClick = { showAutoSyncDialog = true },
-                            iconColor = GoalColors.lifestyle
-                        )
-                    }
-                    
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                    
                     SettingsItem(
-                        icon = Icons.Filled.CloudUpload,
-                        title = "Sync to Cloud Now",
-                        subtitle = if (lastSyncTimeValue != null && lastSyncTimeValue > 0L) {
-                            "Last synced: ${SimpleDateFormat("MMM dd, HH:mm", Locale.getDefault()).format(Date(lastSyncTimeValue))}"
-                        } else {
-                            "Upload your data to AWS S3"
-                        },
+                        icon = Icons.Filled.Logout,
+                        title = "Sign Out",
+                        subtitle = "Sign out of your account",
                         onClick = {
-                            if (!isSyncing) {
-                                viewModel.syncToCloud()
-                            }
+                            viewModel.logout()
                         },
-                        iconColor = GoalColors.career,
-                        trailing = {
-                            if (isSyncing) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    strokeWidth = 2.dp
-                                )
-                            }
-                        }
+                        iconColor = MaterialTheme.colorScheme.error
                     )
-                    
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
-                    
-                    SettingsItem(
-                        icon = Icons.Filled.CloudDownload,
-                        title = "Sync from Cloud",
-                        subtitle = "Download your data from AWS S3",
-                        onClick = {
-                            if (!isSyncing) {
-                                viewModel.syncFromCloud()
-                            }
-                        },
-                        iconColor = GoalColors.health,
-                        trailing = {
-                            if (isSyncing) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(20.dp),
-                                    strokeWidth = 2.dp
-                                )
-                            }
-                        }
-                    )
-                }
-                
-                // Auto Sync Interval Selection Dialog
-                if (showAutoSyncDialog) {
-                    Dialog(
-                        onDismissRequest = { showAutoSyncDialog = false },
-                        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
-                    ) {
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth(0.92f)
-                                .wrapContentHeight(),
-                            shape = RoundedCornerShape(28.dp),
-                            color = MaterialTheme.colorScheme.surface,
-                            tonalElevation = 6.dp
-                        ) {
-                            Column {
-                                // Header
-                                Box(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .background(
-                                            brush = androidx.compose.ui.graphics.Brush.horizontalGradient(
-                                                colors = listOf(
-                                                    MaterialTheme.colorScheme.primary,
-                                                    MaterialTheme.colorScheme.secondary
-                                                )
-                                            )
-                                        )
-                                        .padding(24.dp)
-                                ) {
-                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                        Surface(
-                                            shape = CircleShape,
-                                            color = Color.White.copy(alpha = 0.2f),
-                                            modifier = Modifier.size(48.dp)
-                                        ) {
-                                            Icon(
-                                                Icons.Filled.Schedule,
-                                                contentDescription = null,
-                                                tint = Color.White,
-                                                modifier = Modifier.padding(12.dp)
-                                            )
-                                        }
-                                        Spacer(modifier = Modifier.width(16.dp))
-                                        Column {
-                                            Text(
-                                                "Sync Interval",
-                                                style = MaterialTheme.typography.headlineSmall,
-                                                fontWeight = FontWeight.Bold,
-                                                color = Color.White
-                                            )
-                                            Text(
-                                                "How often should we update?",
-                                                style = MaterialTheme.typography.bodySmall,
-                                                color = Color.White.copy(alpha = 0.8f)
-                                            )
-                                        }
-                                    }
-                                }
-
-                                Column(
-                                    modifier = Modifier.padding(20.dp),
-                                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    listOf(
-                                        15L to "Every 15 minutes (Real-time)",
-                                        30L to "Every 30 minutes",
-                                        60L to "Every hour",
-                                        180L to "Every 3 hours",
-                                        1440L to "Once a day"
-                                    ).forEach { (interval, label) ->
-                                        val isSelected = currentInterval == interval
-                                        Surface(
-                                            onClick = {
-                                                currentInterval = interval
-                                                autoSyncManager.enableAutoSync(interval)
-                                                showAutoSyncDialog = false
-                                            },
-                                            modifier = Modifier.fillMaxWidth(),
-                                            shape = RoundedCornerShape(16.dp),
-                                            color = if (isSelected) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
-                                            border = if (isSelected) BorderStroke(1.dp, MaterialTheme.colorScheme.primary) else null
-                                        ) {
-                                            Row(
-                                                modifier = Modifier.padding(16.dp),
-                                                verticalAlignment = Alignment.CenterVertically
-                                            ) {
-                                                Text(
-                                                    text = label,
-                                                    style = MaterialTheme.typography.bodyLarge,
-                                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                                                    modifier = Modifier.weight(1f)
-                                                )
-                                                if (isSelected) {
-                                                    Icon(
-                                                        Icons.Filled.Check,
-                                                        contentDescription = null,
-                                                        tint = MaterialTheme.colorScheme.primary,
-                                                        modifier = Modifier.size(20.dp)
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                
-                                TextButton(
-                                    onClick = { showAutoSyncDialog = false },
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(bottom = 16.dp, start = 20.dp, end = 20.dp)
-                                ) {
-                                    Text("Cancel")
-                                }
-                            }
-                        }
-                    }
                 }
             }
             
@@ -682,7 +482,7 @@ fun SettingsScreen(
                     SettingsItem(
                         icon = Icons.Outlined.Info,
                         title = "App Version",
-                        subtitle = "1.2.0 (Click to see history)",
+                        subtitle = "2.0.0 (Click to see history)",
                         onClick = { onNavigate(com.lssgoo.planner.ui.navigation.Routes.VERSION_HISTORY) },
                         iconColor = GoalColors.learning
                     )

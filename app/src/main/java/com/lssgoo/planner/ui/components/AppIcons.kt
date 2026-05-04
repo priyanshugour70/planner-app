@@ -20,6 +20,7 @@ fun GoalCategory.getIcon(): ImageVector {
         GoalCategory.FINANCE -> Icons.Default.Savings
         GoalCategory.STARTUP -> Icons.Default.RocketLaunch
         GoalCategory.MINDFULNESS -> Icons.Default.SelfImprovement
+        GoalCategory.PERSONAL -> Icons.Default.Person
     }
 }
 
@@ -36,7 +37,8 @@ object AppIcons {
     val Finance = Icons.Default.Savings
     val Startup = Icons.Default.RocketLaunch
     val Mindfulness = Icons.Default.SelfImprovement
-    
+    val Personal = Icons.Default.Person
+
     val Goal = Icons.Default.Flag
     val Target = Icons.Default.Flag
     val Task = Icons.Default.TaskAlt
