@@ -62,17 +62,9 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
     val journalPrompts: StateFlow<List<JournalPrompt>> = _journalPrompts.asStateFlow()
 
     init {
-        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) {
-            checkCloudBackup()
+        if (_isOnboardingComplete.value) {
+            reloadAllData()
         }
-        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { loadGoals() }
-        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { loadTasks() }
-        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { loadNotes() }
-        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { loadHabits() }
-        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { loadJournalData() }
-        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { loadFinanceData() }
-        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { loadReminders() }
-        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { loadDashboardStats() }
     }
 
     private fun loadTasks() {
@@ -123,7 +115,24 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
         viewModelScope.launch {
             storageManager.setOnboardingComplete()
             _isOnboardingComplete.value = true
+            // Fresh user just logged in — reload all data from API/storage for this user
+            reloadAllData()
         }
+    }
+
+    /**
+     * Reload all feature data from the repository (API if logged in, else local storage).
+     * Called after login/onboarding so the new user's data is loaded into memory.
+     */
+    fun reloadAllData() {
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { loadGoals() }
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { loadTasks() }
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { loadNotes() }
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { loadHabits() }
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { loadJournalData() }
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { loadFinanceData() }
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { loadReminders() }
+        viewModelScope.launch(kotlinx.coroutines.Dispatchers.IO) { loadDashboardStats() }
     }
     
     fun updateSettings(newSettings: AppSettings) {
@@ -145,8 +154,7 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
     fun clearAllData() {
         viewModelScope.launch {
             storageManager.clearAllData()
-            _userProfile.value = UserProfile()
-            _isOnboardingComplete.value = false
+            resetInMemoryState()
         }
     }
     
@@ -166,9 +174,37 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
                 apiService.logout()
             } catch (_: Exception) {}
             storageManager.clearAllData()
-            _userProfile.value = UserProfile()
-            _isOnboardingComplete.value = false
+            resetInMemoryState()
         }
+    }
+
+    /**
+     * Reset ALL in-memory state so no previous user data leaks after logout or user switch.
+     * Called after clearing SharedPreferences (both planner_auth via apiService.logout and planner_storage).
+     */
+    private fun resetInMemoryState() {
+        _userProfile.value = UserProfile()
+        _isOnboardingComplete.value = false
+        _settings.value = AppSettings()
+        goals.value = emptyList()
+        tasks.value = emptyList()
+        notes.value = emptyList()
+        reminders.value = emptyList()
+        habits.value = emptyList()
+        _journalEntries.value = emptyList()
+        _journalPrompts.value = emptyList()
+        transactions.value = emptyList()
+        financeLogs.value = emptyList()
+        budgets.value = emptyList()
+        dashboardStats.value = DashboardStats()
+        financeStats.value = FinanceStats()
+        analyticsData.value = null
+        searchQuery.value = ""
+        searchResults.value = emptyList()
+        recentSearches.value = emptyList()
+        searchFilters.value = SearchFilters()
+        selectedDate.value = System.currentTimeMillis()
+        events.value = emptyList()
     }
     
     fun exportDataToFile(context: Context): android.net.Uri? {
@@ -188,13 +224,8 @@ class PlannerViewModel(application: Application) : BaseViewModel(application) {
     
     fun importData(json: String): Boolean {
          val success = storageManager.importAllData(json)
-         if(success) {
-             // Refresh data
-             loadFinanceData()
-             loadGoals()
-             loadHabits()
-             loadJournalData()
-             loadNotes()
+         if (success) {
+             reloadAllData()
          }
          return success
      }
