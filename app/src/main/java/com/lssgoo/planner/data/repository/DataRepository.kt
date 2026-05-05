@@ -607,7 +607,18 @@ class DataRepository(context: Context) {
         "color" to goal.color,
         "progress" to goal.progress,
         "targetDate" to goal.targetDate,
-        "number" to goal.number
+        "number" to goal.number,
+        "status" to goal.status.name,
+        "priority" to goal.priority.name,
+        "tags" to goal.tags,
+        "notes" to goal.notes,
+        "startDate" to goal.startDate,
+        "isFavorite" to goal.isFavorite,
+        "isPinned" to goal.isPinned,
+        "motivation" to goal.motivation,
+        "expectedOutcome" to goal.expectedOutcome,
+        "reminderEnabled" to goal.reminderEnabled,
+        "reminderFrequency" to goal.reminderFrequency
     )
 
     private fun taskToMap(task: Task): Map<String, Any?> = mapOf(
@@ -796,17 +807,68 @@ class DataRepository(context: Context) {
             } catch (_: Exception) {
                 FeatureGoalCategory.PERSONAL
             }
+            val statusStr = map["status"] as? String ?: "NOT_STARTED"
+            val status = try {
+                com.lssgoo.planner.features.goals.models.GoalStatus.valueOf(statusStr)
+            } catch (_: Exception) {
+                com.lssgoo.planner.features.goals.models.GoalStatus.NOT_STARTED
+            }
+            val priorityStr = map["priority"] as? String ?: "MEDIUM"
+            val priority = try {
+                com.lssgoo.planner.features.goals.models.GoalPriority.valueOf(priorityStr)
+            } catch (_: Exception) {
+                com.lssgoo.planner.features.goals.models.GoalPriority.MEDIUM
+            }
+            @Suppress("UNCHECKED_CAST")
+            val milestonesList = (map["milestones"] as? List<Map<String, Any?>>)?.mapNotNull { mMap ->
+                try {
+                    val mQuality = (mMap["quality"] as? String)?.let { q ->
+                        try { com.lssgoo.planner.features.goals.models.MilestoneQuality.valueOf(q) } catch (_: Exception) { null }
+                    }
+                    val mPriority = (mMap["priority"] as? String)?.let { p ->
+                        try { com.lssgoo.planner.features.goals.models.GoalPriority.valueOf(p) } catch (_: Exception) { null }
+                    } ?: com.lssgoo.planner.features.goals.models.GoalPriority.MEDIUM
+                    Milestone(
+                        id = (mMap["uuid"] as? String) ?: (mMap["id"] as? String) ?: return@mapNotNull null,
+                        title = mMap["title"] as? String ?: "",
+                        description = mMap["description"] as? String,
+                        isCompleted = mMap["isCompleted"] as? Boolean ?: false,
+                        completedAt = (mMap["completedAt"] as? Number)?.toLong(),
+                        targetDate = (mMap["targetDate"] as? Number)?.toLong(),
+                        quality = mQuality,
+                        rating = (mMap["rating"] as? Number)?.toInt(),
+                        orderIndex = (mMap["orderIndex"] as? Number)?.toInt() ?: 0,
+                        priority = mPriority,
+                        notes = mMap["notes"] as? String,
+                        estimatedEffort = mMap["estimatedEffort"] as? String,
+                        actualEffort = mMap["actualEffort"] as? String,
+                        reflection = mMap["reflection"] as? String
+                    )
+                } catch (_: Exception) { null }
+            } ?: emptyList()
             Goal(
                 id = (map["uuid"] as? String) ?: (map["id"] as? String) ?: return null,
                 number = (map["number"] as? Number)?.toInt() ?: 0,
                 title = map["title"] as? String ?: "",
                 description = map["description"] as? String ?: "",
                 category = category,
+                status = status,
+                priority = priority,
                 icon = map["icon"] as? String ?: "",
                 color = parseColorLong(map["color"]),
                 progress = (map["progress"] as? Number)?.toFloat() ?: 0f,
-                milestones = emptyList(),
+                milestones = milestonesList,
                 targetDate = (map["targetDate"] as? Number)?.toLong(),
+                startDate = (map["startDate"] as? Number)?.toLong(),
+                completedDate = (map["completedDate"] as? Number)?.toLong(),
+                tags = map["tags"] as? String,
+                notes = map["notes"] as? String,
+                isFavorite = map["isFavorite"] as? Boolean ?: false,
+                isPinned = map["isPinned"] as? Boolean ?: false,
+                motivation = map["motivation"] as? String,
+                expectedOutcome = map["expectedOutcome"] as? String,
+                reminderEnabled = map["reminderEnabled"] as? Boolean ?: false,
+                reminderFrequency = map["reminderFrequency"] as? String,
                 createdAt = parseTimestamp(map["createdAt"]),
                 updatedAt = parseTimestamp(map["updatedAt"])
             )

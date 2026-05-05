@@ -2,6 +2,21 @@ package com.lssgoo.planner.features.goals.models
 
 import java.util.UUID
 
+enum class GoalStatus(val displayName: String, val color: Long) {
+    NOT_STARTED("Not Started", 0xFF9E9E9E),
+    IN_PROGRESS("In Progress", 0xFF2196F3),
+    COMPLETED("Completed", 0xFF4CAF50),
+    ON_HOLD("On Hold", 0xFFFF9800),
+    ABANDONED("Abandoned", 0xFFF44336)
+}
+
+enum class GoalPriority(val displayName: String, val color: Long, val emoji: String) {
+    LOW("Low", 0xFF8BC34A, "🟢"),
+    MEDIUM("Medium", 0xFFFFEB3B, "🟡"),
+    HIGH("High", 0xFFFF9800, "🟠"),
+    CRITICAL("Critical", 0xFFF44336, "🔴")
+}
+
 /**
  * Represents a life goal
  */
@@ -17,7 +32,19 @@ data class Goal(
     val milestones: List<Milestone> = emptyList(),
     val targetDate: Long? = null,
     val createdAt: Long = System.currentTimeMillis(),
-    val updatedAt: Long = System.currentTimeMillis()
+    val updatedAt: Long = System.currentTimeMillis(),
+    val status: GoalStatus = GoalStatus.NOT_STARTED,
+    val priority: GoalPriority = GoalPriority.MEDIUM,
+    val tags: String? = null,
+    val notes: String? = null,
+    val startDate: Long? = null,
+    val completedDate: Long? = null,
+    val isFavorite: Boolean = false,
+    val isPinned: Boolean = false,
+    val reminderEnabled: Boolean = false,
+    val reminderFrequency: String? = null,
+    val motivation: String? = null,
+    val expectedOutcome: String? = null
 )
 
 data class Milestone(
@@ -28,7 +55,13 @@ data class Milestone(
     val completedAt: Long? = null,
     val targetDate: Long? = null,
     val quality: MilestoneQuality? = null,
-    val rating: Int? = null // 1-5 stars
+    val rating: Int? = null, // 1-5 stars
+    val orderIndex: Int = 0,
+    val priority: GoalPriority = GoalPriority.MEDIUM,
+    val notes: String? = null,
+    val estimatedEffort: String? = null,
+    val actualEffort: String? = null,
+    val reflection: String? = null
 )
 
 enum class MilestoneQuality(val displayName: String, val color: Long) {

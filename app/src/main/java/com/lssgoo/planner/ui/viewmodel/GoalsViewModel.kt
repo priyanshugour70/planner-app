@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.viewModelScope
 import com.lssgoo.planner.data.model.Goal
 import com.lssgoo.planner.data.repository.DataRepository
+import com.lssgoo.planner.features.goals.models.GoalStatus
 import com.lssgoo.planner.features.goals.models.Milestone
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -32,6 +33,7 @@ class GoalsViewModel(application: Application) : BaseViewModel(application) {
 
     fun addGoal(goal: Goal) {
         viewModelScope.launch(Dispatchers.IO) {
+            _goals.value = listOf(goal) + _goals.value
             repository.createGoal(goal)
             loadGoals()
         }
@@ -39,6 +41,7 @@ class GoalsViewModel(application: Application) : BaseViewModel(application) {
 
     fun updateGoal(goal: Goal) {
         viewModelScope.launch(Dispatchers.IO) {
+            _goals.value = _goals.value.map { if (it.id == goal.id) goal else it }
             repository.updateGoal(goal)
             loadGoals()
         }
@@ -46,8 +49,27 @@ class GoalsViewModel(application: Application) : BaseViewModel(application) {
 
     fun deleteGoal(goalId: String) {
         viewModelScope.launch(Dispatchers.IO) {
+            _goals.value = _goals.value.filter { it.id != goalId }
             repository.deleteGoal(goalId)
             loadGoals()
+        }
+    }
+
+    fun toggleFavorite(goalId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val goal = getGoalById(goalId) ?: return@launch
+            val updated = goal.copy(isFavorite = !goal.isFavorite, updatedAt = System.currentTimeMillis())
+            _goals.value = _goals.value.map { if (it.id == goalId) updated else it }
+            repository.updateGoal(updated)
+        }
+    }
+
+    fun togglePin(goalId: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            val goal = getGoalById(goalId) ?: return@launch
+            val updated = goal.copy(isPinned = !goal.isPinned, updatedAt = System.currentTimeMillis())
+            _goals.value = _goals.value.map { if (it.id == goalId) updated else it }
+            repository.updateGoal(updated)
         }
     }
 
@@ -55,14 +77,31 @@ class GoalsViewModel(application: Application) : BaseViewModel(application) {
         viewModelScope.launch(Dispatchers.IO) {
             val goal = getGoalById(goalId) ?: return@launch
             val updatedMilestones = goal.milestones.map {
-                if (it.id == milestoneId) it.copy(isCompleted = !it.isCompleted, completedAt = if (!it.isCompleted) System.currentTimeMillis() else null) else it
+                if (it.id == milestoneId) it.copy(
+                    isCompleted = !it.isCompleted,
+                    completedAt = if (!it.isCompleted) System.currentTimeMillis() else null
+                ) else it
             }
             val total = updatedMilestones.size
             val completed = updatedMilestones.count { it.isCompleted }
             val progress = if (total > 0) completed.toFloat() / total else 0f
-            val updated = goal.copy(milestones = updatedMilestones, progress = progress, updatedAt = System.currentTimeMillis())
+
+            val newStatus = when {
+                progress >= 1.0f -> GoalStatus.COMPLETED
+                progress > 0f && goal.status == GoalStatus.NOT_STARTED -> GoalStatus.IN_PROGRESS
+                else -> goal.status
+            }
+
+            val updated = goal.copy(
+                milestones = updatedMilestones,
+                progress = progress,
+                status = newStatus,
+                completedDate = if (newStatus == GoalStatus.COMPLETED) System.currentTimeMillis() else goal.completedDate,
+                startDate = if (newStatus == GoalStatus.IN_PROGRESS && goal.startDate == null) System.currentTimeMillis() else goal.startDate,
+                updatedAt = System.currentTimeMillis()
+            )
+            _goals.value = _goals.value.map { if (it.id == goalId) updated else it }
             repository.updateGoal(updated)
-            loadGoals()
         }
     }
 
@@ -75,9 +114,23 @@ class GoalsViewModel(application: Application) : BaseViewModel(application) {
             val total = updatedMilestones.size
             val completed = updatedMilestones.count { it.isCompleted }
             val progress = if (total > 0) completed.toFloat() / total else 0f
-            val updated = goal.copy(milestones = updatedMilestones, progress = progress, updatedAt = System.currentTimeMillis())
+
+            val newStatus = when {
+                progress >= 1.0f -> GoalStatus.COMPLETED
+                progress > 0f && goal.status == GoalStatus.NOT_STARTED -> GoalStatus.IN_PROGRESS
+                else -> goal.status
+            }
+
+            val updated = goal.copy(
+                milestones = updatedMilestones,
+                progress = progress,
+                status = newStatus,
+                completedDate = if (newStatus == GoalStatus.COMPLETED) System.currentTimeMillis() else goal.completedDate,
+                startDate = if (newStatus == GoalStatus.IN_PROGRESS && goal.startDate == null) System.currentTimeMillis() else goal.startDate,
+                updatedAt = System.currentTimeMillis()
+            )
+            _goals.value = _goals.value.map { if (it.id == goalId) updated else it }
             repository.updateGoal(updated)
-            loadGoals()
         }
     }
 
@@ -88,9 +141,13 @@ class GoalsViewModel(application: Application) : BaseViewModel(application) {
             val total = updatedMilestones.size
             val completed = updatedMilestones.count { it.isCompleted }
             val progress = if (total > 0) completed.toFloat() / total else 0f
-            val updated = goal.copy(milestones = updatedMilestones, progress = progress, updatedAt = System.currentTimeMillis())
+            val updated = goal.copy(
+                milestones = updatedMilestones,
+                progress = progress,
+                updatedAt = System.currentTimeMillis()
+            )
+            _goals.value = _goals.value.map { if (it.id == goalId) updated else it }
             repository.updateGoal(updated)
-            loadGoals()
         }
     }
 
