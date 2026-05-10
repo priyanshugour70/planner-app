@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "planner-app",
-    "slug": "planner-app",
+    "slug": "planner",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./src/assets/images/icon.png",
@@ -49,6 +49,15 @@
     ],
     "experiments": {
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {
+        "root": "./src/app"
+      },
+      "eas": {
+        "projectId": "6e7d342f-5ace-41b1-bf07-462555e4e6df"
+      }
+    },
+    "owner": "priyanshugour70"
   }
 }
