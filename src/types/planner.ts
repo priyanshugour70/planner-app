@@ -1,0 +1,143 @@
+/** Planner finance DTOs — aligned with `planner-web/src/types/planner.ts` + API serializers. */
+
+export type BudgetDTO = {
+  id: string;
+  userId: string;
+  name: string;
+  category: string | null;
+  amountLimit: string;
+  periodStart: string | null;
+  periodEnd: string | null;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TransactionDTO = {
+  id: string;
+  userId: string;
+  budgetId: string | null;
+  kind: string;
+  amount: string;
+  category: string | null;
+  note: string | null;
+  occurredOn: string | null;
+  createdAt: string;
+  merchant?: string | null;
+  paymentMethod?: string | null;
+  tags?: string[];
+  accountId?: string | null;
+  categoryId?: string | null;
+};
+
+export type FinanceSummaryDTO = {
+  monthSpend: string;
+  monthIncome: string;
+  openDebtCount: number;
+  openDebtExposure: string;
+  upcomingDebtDue7d: number;
+  budgetCount: number;
+};
+
+export type FinanceAccountDTO = {
+  id: string;
+  userId: string;
+  name: string;
+  kind: string;
+  currency: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type FinanceCategoryDTO = {
+  id: string;
+  userId: string;
+  name: string;
+  kind: string;
+  parentId: string | null;
+  createdAt: string;
+};
+
+export type DebtObligationDTO = {
+  id: string;
+  userId: string;
+  counterparty: string;
+  direction: string;
+  principal: string;
+  balance: string;
+  currency: string;
+  dueDate: string | null;
+  status: string;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type DebtPaymentDTO = {
+  id: string;
+  obligationId: string;
+  amount: string;
+  paidAt: string;
+  note: string | null;
+};
+
+export type BudgetRollupDTO = {
+  budgetId: string;
+  name: string;
+  category: string | null;
+  amountLimit: string;
+  spent: string;
+  periodStart: string | null;
+  periodEnd: string | null;
+};
+
+export type RecurringRuleDTO = {
+  id: string;
+  userId: string;
+  label: string;
+  templateKind: string;
+  templateAmount: string;
+  templateCategory: string | null;
+  cadence: string;
+  nextRunOn: string;
+  active: boolean;
+  accountId: string | null;
+  budgetId: string | null;
+  categoryId: string | null;
+  createdAt: string;
+};
+
+export type RecurringMaterializeResultDTO = {
+  createdTransactionIds: string[];
+};
+
+/** Goals — aligned with planner-web `GoalDTO`. */
+export type GoalDTO = {
+  id: string;
+  userId: string;
+  title: string;
+  description: string | null;
+  status: string;
+  priority: number;
+  targetDate: string | null;
+  progress: number;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/** Tasks — aligned with planner-web `TaskDTO`. */
+export type TaskDTO = {
+  id: string;
+  userId: string;
+  goalId: string | null;
+  parentTaskId: string | null;
+  title: string;
+  description: string | null;
+  status: string;
+  priority: number;
+  dueAt: string | null;
+  completedAt: string | null;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+};
