@@ -114,6 +114,34 @@ export default function HomeScreen() {
           onPress={() => router.push(href("/(private)/(main)/tasks"))}
         />
         <ActionCard
+          title="Habits"
+          subtitle="Daily tracking and streaks"
+          icon="flame-outline"
+          tint={c.success}
+          onPress={() => router.push(href("/(private)/(main)/habits"))}
+        />
+        <ActionCard
+          title="Journal"
+          subtitle="Daily reflections and moods"
+          icon="book-outline"
+          tint={c.danger}
+          onPress={() => router.push(href("/(private)/(main)/journal"))}
+        />
+        <ActionCard
+          title="Notes"
+          subtitle="Capture ideas and thoughts"
+          icon="document-text-outline"
+          tint={c.accent}
+          onPress={() => router.push(href("/(private)/(main)/notes"))}
+        />
+        <ActionCard
+          title="Calendar"
+          subtitle="Schedule events & daily logs"
+          icon="calendar-outline"
+          tint={c.accent}
+          onPress={() => router.push(href("/(private)/(main)/calendar"))}
+        />
+        <ActionCard
           title="Devices & sessions"
           subtitle="See where you are signed in"
           icon="phone-portrait-outline"

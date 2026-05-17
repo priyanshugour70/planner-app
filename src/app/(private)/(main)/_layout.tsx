@@ -25,6 +25,10 @@ export default function MainStackLayout() {
         <Stack.Screen name="index" options={{ title: "Home" }} />
         <Stack.Screen name="finance" options={{ headerShown: false }} />
         <Stack.Screen name="tasks" options={{ headerShown: false }} />
+        <Stack.Screen name="habits" options={{ headerShown: false }} />
+        <Stack.Screen name="journal" options={{ headerShown: false }} />
+        <Stack.Screen name="notes" options={{ headerShown: false }} />
+        <Stack.Screen name="calendar" options={{ headerShown: false }} />
         <Stack.Screen name="sessions" options={{ title: "Sessions", headerBackVisible: false }} />
       </Stack>
       <MainNavMenuSheet ref={menuRef} />

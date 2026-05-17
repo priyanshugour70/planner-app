@@ -17,15 +17,23 @@ const ITEMS: Item[] = [
   { key: "home", label: "Home", path: "/(private)/(main)", icon: "home-outline" },
   { key: "finance", label: "Finance", path: "/(private)/(main)/finance", icon: "wallet-outline" },
   { key: "tasks", label: "Tasks", path: "/(private)/(main)/tasks", icon: "checkbox-outline" },
+  { key: "habits", label: "Habits", path: "/(private)/(main)/habits", icon: "flame-outline" },
+  { key: "journal", label: "Journal", path: "/(private)/(main)/journal", icon: "book-outline" },
+  { key: "notes", label: "Notes", path: "/(private)/(main)/notes", icon: "document-text-outline" },
+  { key: "calendar", label: "Calendar", path: "/(private)/(main)/calendar", icon: "calendar-outline" },
   { key: "sessions", label: "Sessions", path: "/(private)/(main)/sessions", icon: "phone-portrait-outline" },
 ];
 
 function navActive(pathname: string, item: Item): boolean {
   if (item.key === "finance") return pathname.includes("/finance");
   if (item.key === "tasks") return pathname.includes("/tasks");
+  if (item.key === "habits") return pathname.includes("/habits");
+  if (item.key === "journal") return pathname.includes("/journal");
+  if (item.key === "notes") return pathname.includes("/notes");
+  if (item.key === "calendar") return pathname.includes("/calendar");
   if (item.key === "sessions") return pathname.includes("/sessions");
   if (item.key === "home")
-    return !pathname.includes("/finance") && !pathname.includes("/tasks") && !pathname.includes("/sessions");
+    return !pathname.includes("/finance") && !pathname.includes("/tasks") && !pathname.includes("/habits") && !pathname.includes("/journal") && !pathname.includes("/notes") && !pathname.includes("/calendar") && !pathname.includes("/sessions");
   return false;
 }
 
@@ -37,7 +45,7 @@ export const MainNavMenuSheet = forwardRef<MainNavMenuSheetRef>(function MainNav
   const c = usePlannerTheme();
   const router = useRouter();
   const pathname = usePathname();
-  const snapPoints = useMemo(() => ["48%"], []);
+  const snapPoints = useMemo(() => ["54%"], []);
 
   const renderBackdrop = useCallback(
     (props: Parameters<typeof BottomSheetBackdrop>[0]) => (

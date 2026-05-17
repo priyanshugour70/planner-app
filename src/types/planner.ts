@@ -141,3 +141,107 @@ export type TaskDTO = {
   createdAt: string;
   updatedAt: string;
 };
+
+/** Habits — aligned with planner-web `HabitDTO`. */
+export type HabitDTO = {
+  id: string;
+  userId: string;
+  name: string;
+  description: string | null;
+  color: string;
+  icon: string;
+  frequency: string;
+  targetPerWeek: number | null;
+  archived: boolean;
+  reminderTime: string | null;
+  startDate: string | null;
+  goalId: string | null;
+  customDays: number[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type HabitEntryDTO = {
+  id: string;
+  habitId: string;
+  entryDate: string | null;
+  count: number;
+  note: string | null;
+  createdAt: string;
+};
+
+export type HabitAnalyticsDTO = {
+  habitId: string;
+  currentStreak: number;
+  longestStreak: number;
+  totalEntries: number;
+  totalCount: number;
+  completionRate: number;
+  last30Days: { date: string; count: number }[];
+};
+
+export type HabitsSummaryDTO = {
+  totalHabits: number;
+  activeHabits: number;
+  archivedHabits: number;
+  todayLogged: number;
+  totalStreaksActive: number;
+  bestCurrentStreak: number;
+};
+
+/** Journal — aligned with planner-web `JournalEntryDTO`. */
+export type JournalEntryDTO = {
+  id: string;
+  userId: string;
+  title: string;
+  body: string;
+  mood: string | null;
+  entryDate: string | null;
+  tags: string[];
+  isFavorite: boolean;
+  wordCount: number;
+  prompt: string | null;
+  energyLevel: number | null;
+  weather: string | null;
+  location: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type JournalAnalyticsDTO = {
+  totalEntries: number;
+  totalWords: number;
+  avgWordsPerEntry: number;
+  favoriteCount: number;
+  moodDistribution: { mood: string; count: number }[];
+  entriesPerMonth: { month: string; count: number }[];
+  currentWritingStreak: number;
+  longestWritingStreak: number;
+};
+
+export type NoteDTO = {
+  id: string;
+  userId: string;
+  title: string;
+  body: string;
+  pinned: boolean;
+  color: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type CalendarEventDTO = {
+  id: string;
+  userId: string;
+  title: string;
+  description: string | null;
+  location: string | null;
+  startsAt: string;
+  endsAt: string;
+  allDay: boolean;
+  color: string;
+  taskId: string | null;
+  goalId: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
