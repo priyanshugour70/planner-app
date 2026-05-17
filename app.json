@@ -1,6 +1,6 @@
 {
   "expo": {
-    "name": "planner-app",
+    "name": "Planner",
     "slug": "planner",
     "version": "1.0.0",
     "orientation": "portrait",
@@ -9,9 +9,11 @@
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.lssgoo.planner"
     },
     "android": {
+      "package": "com.lssgoo.planner",
       "adaptiveIcon": {
         "backgroundColor": "#0A0A0B",
         "foregroundImage": "./src/assets/images/android-icon-foreground.png",
