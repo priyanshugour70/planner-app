@@ -14,7 +14,7 @@ function readEnv(key: string): string | undefined {
  * Set `EXPO_PUBLIC_PLANNER_API_URL` in `.env` or `app.config.js`.
  */
 export function getApiBaseUrl(): string {
-  const raw = readEnv("EXPO_PUBLIC_PLANNER_API_URL") ?? "http://127.0.0.1:3000";
+  const raw = readEnv("EXPO_PUBLIC_PLANNER_API_URL") ?? "https://planner.lssgoo.com";
   return raw.replace(/\/+$/, "");
 }
 
